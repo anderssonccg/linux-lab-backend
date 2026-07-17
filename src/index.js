@@ -24,7 +24,7 @@ app.get('/', (_req, res) => {
 });
 
 const server = app.listen(PORT, () => {
-    console.log(`Servidor corriendo en http://localhost:${PORT}`);
+    console.log(`Server running at http://localhost:${PORT}`);
 });
 
 process.on('SIGINT', async () => {

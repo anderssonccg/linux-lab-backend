@@ -6,7 +6,7 @@ function authMiddleware(req, res, next) {
   const token = req.cookies?.token
 
   if (!token) {
-    return res.status(401).json({ error: "No autorizado: sesión no encontrada" })
+    return res.status(401).json({ error: "Unauthorized: session not found" })
   }
 
   try {
@@ -14,7 +14,7 @@ function authMiddleware(req, res, next) {
     req.user = decoded
     next()
   } catch {
-    return res.status(401).json({ error: "No autorizado: sesión inválida o expirada" })
+    return res.status(401).json({ error: "Unauthorized: invalid or expired session" })
   }
 }
 

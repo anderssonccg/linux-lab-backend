@@ -1,7 +1,7 @@
 const express = require("express")
 const jwt = require("jsonwebtoken")
 const { getAuth } = require("firebase-admin/auth")
-const firebaseApp = require("../config/firebase")
+const firebaseApp = require("../config/firebase-admin")
 const prisma = require("../../prisma/client")
 const authMiddleware = require("../middleware/auth")
 
@@ -20,11 +20,11 @@ router.post("/firebase", async (req, res) => {
   try {
     const { idToken } = req.body
     if (!idToken) {
-      return res.status(400).json({ error: "Token requerido" })
+      return res.status(400).json({ error: "Token required" })
     }
 
     if (!firebaseApp) {
-      return res.status(500).json({ error: "Firebase no está configurado en el servidor" })
+      return res.status(500).json({ error: "Firebase is not configured on the server" })
     }
 
     const auth = getAuth(firebaseApp)
@@ -32,17 +32,17 @@ router.post("/firebase", async (req, res) => {
     const { email, name, uid, picture } = decoded
 
     if (!email) {
-      return res.status(400).json({ error: "El correo es requerido" })
+      return res.status(400).json({ error: "Email is required" })
     }
 
     const user = await prisma.user.findUnique({ where: { email } })
 
     if (!user) {
-      return res.status(401).json({ error: "Usuario no registrado en la plataforma" })
+      return res.status(401).json({ error: "User not registered on the platform" })
     }
 
     if (!user.active) {
-      return res.status(403).json({ error: "Cuenta desactivada. Contacta al administrador." })
+      return res.status(403).json({ error: "Account deactivated. Contact the administrator." })
     }
 
     if (!user.google_id) {
@@ -72,13 +72,13 @@ router.post("/firebase", async (req, res) => {
     })
   } catch (error) {
     if (error.code === "auth/id-token-expired") {
-      return res.status(401).json({ error: "Sesión de Google expirada" })
+      return res.status(401).json({ error: "Google session expired" })
     }
     if (error.code === "auth/argument-error") {
-      return res.status(400).json({ error: "Token inválido" })
+      return res.status(400).json({ error: "Invalid token" })
     }
     console.error("Firebase auth error:", error?.message || error)
-    res.status(500).json({ error: error?.message || "Error de autenticación" })
+    res.status(500).json({ error: error?.message || "Authentication error" })
   }
 })
 
@@ -87,11 +87,11 @@ router.get("/me", authMiddleware, async (req, res) => {
     const user = await prisma.user.findUnique({ where: { id: req.user.id } })
     if (!user) {
       res.clearCookie("token", { path: "/" })
-      return res.status(401).json({ error: "Usuario no encontrado" })
+      return res.status(401).json({ error: "User not found" })
     }
     if (!user.active) {
       res.clearCookie("token", { path: "/" })
-      return res.status(403).json({ error: "Cuenta desactivada" })
+      return res.status(403).json({ error: "Account deactivated" })
     }
     res.json({
       user: {
@@ -105,13 +105,13 @@ router.get("/me", authMiddleware, async (req, res) => {
     })
   } catch (error) {
     console.error("Auth me error:", error)
-    res.status(500).json({ error: "Error al obtener sesión" })
+    res.status(500).json({ error: "Error getting session" })
   }
 })
 
 router.post("/logout", authMiddleware, (_req, res) => {
   res.clearCookie("token", { path: "/" })
-  res.json({ message: "Sesión cerrada" })
+  res.json({ message: "Session closed" })
 })
 
 module.exports = router
