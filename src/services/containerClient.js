@@ -1,6 +1,6 @@
 const Docker = require("dockerode")
 
-const CONTAINER_NAME = process.env.CONTAINER_NAME || "entorno-lab"
+const CONTAINER_NAME = process.env.CONTAINER_NAME || "linux-lab"
 const docker = new Docker()
 
 async function execInteractive(opts = {}) {
