@@ -7,6 +7,8 @@ const prisma = require('../prisma/client');
 const authRoutes = require('./routes/auth');
 const adminRoutes = require('./routes/admin');
 
+const setupGateway = require('./gateway');
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -28,6 +30,8 @@ app.get('/', (_req, res) => {
 const server = app.listen(PORT, () => {
     console.log(`Server running at http://localhost:${PORT}`);
 });
+
+setupGateway(server);
 
 process.on('SIGINT', async () => {
     await prisma.$disconnect();
