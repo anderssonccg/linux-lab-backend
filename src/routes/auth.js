@@ -16,6 +16,30 @@ const COOKIE_OPTIONS = {
   path: "/",
 }
 
+const USER_INCLUDE = {
+  linuxAccount: {
+    select: {
+      linux_username: true,
+      linux_provisioned: true,
+    },
+  },
+  teacher: { select: { user_id: true } },
+  student: { select: { user_id: true } },
+}
+
+function serializeUser(user) {
+  return {
+    id: user.id,
+    email: user.email,
+    name: user.name,
+    role: user.role,
+    googleId: user.google_id,
+    active: user.active,
+    linuxUsername: user.linuxAccount?.linux_username ?? null,
+    linuxProvisioned: user.linuxAccount?.linux_provisioned ?? false,
+  }
+}
+
 router.post("/firebase", async (req, res) => {
   try {
     const { idToken } = req.body
@@ -39,7 +63,10 @@ router.post("/firebase", async (req, res) => {
       return res.status(403).json({ error: "Solo se permiten correos institucionales @ufps.edu.co" })
     }
 
-    const user = await prisma.user.findUnique({ where: { email } })
+    let user = await prisma.user.findUnique({
+      where: { email },
+      include: USER_INCLUDE,
+    })
 
     if (!user) {
       return res.status(401).json({ error: "User not registered on the platform" })
@@ -50,9 +77,10 @@ router.post("/firebase", async (req, res) => {
     }
 
     if (!user.google_id) {
-      await prisma.user.update({
+      user = await prisma.user.update({
         where: { id: user.id },
         data: { google_id: uid },
+        include: USER_INCLUDE,
       })
     }
 
@@ -64,16 +92,7 @@ router.post("/firebase", async (req, res) => {
 
     res.cookie("token", token, COOKIE_OPTIONS)
 
-    res.json({
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        role: user.role,
-        googleId: uid,
-        active: user.active,
-      },
-    })
+    res.json({ user: serializeUser(user) })
   } catch (error) {
     if (error.code === "auth/id-token-expired") {
       return res.status(401).json({ error: "Google session expired" })
@@ -88,7 +107,10 @@ router.post("/firebase", async (req, res) => {
 
 router.get("/me", authMiddleware, async (req, res) => {
   try {
-    const user = await prisma.user.findUnique({ where: { id: req.user.id } })
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.id },
+      include: USER_INCLUDE,
+    })
     if (!user) {
       res.clearCookie("token", { path: "/" })
       return res.status(401).json({ error: "User not found" })
@@ -97,16 +119,7 @@ router.get("/me", authMiddleware, async (req, res) => {
       res.clearCookie("token", { path: "/" })
       return res.status(403).json({ error: "Account deactivated" })
     }
-    res.json({
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        role: user.role,
-        googleId: user.google_id,
-        active: user.active,
-      },
-    })
+    res.json({ user: serializeUser(user) })
   } catch (error) {
     console.error("Auth me error:", error)
     res.status(500).json({ error: "Error getting session" })

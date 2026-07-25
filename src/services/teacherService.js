@@ -1,5 +1,6 @@
 const { Role } = require("@prisma/client")
 const prisma = require("../../prisma/client")
+const { sanitizeUsername } = require("../utils/sanitizeUsername")
 
 class ServiceError extends Error {
   constructor(message, status) {
@@ -16,10 +17,30 @@ const TEACHER_SELECT = {
   name: true,
   email: true,
   active: true,
+  linuxAccount: {
+    select: {
+      linux_username: true,
+      linux_provisioned: true,
+    },
+  },
+  teacher: {
+    select: { user_id: true },
+  },
+}
+
+function serializeTeacher(user) {
+  return {
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    active: user.active,
+    linuxUsername: user.linuxAccount?.linux_username ?? null,
+    linuxProvisioned: user.linuxAccount?.linux_provisioned ?? false,
+  }
 }
 
 async function findAll(filters = {}) {
-  const where = { role: Role.teacher }
+  const where = { role: Role.teacher, teacher: { isNot: null } }
 
   if (filters.search) {
     where.OR = [
@@ -31,11 +52,12 @@ async function findAll(filters = {}) {
   if (filters.status === "active") where.active = true
   if (filters.status === "inactive") where.active = false
 
-  return prisma.user.findMany({
+  const users = await prisma.user.findMany({
     where,
     select: TEACHER_SELECT,
     orderBy: { created_at: "desc" },
   })
+  return users.map(serializeTeacher)
 }
 
 async function register({ name, email }) {
@@ -61,29 +83,44 @@ async function register({ name, email }) {
     throw new ServiceError("El correo electrónico ya está registrado en la plataforma", 409)
   }
 
-  return prisma.user.create({
+  const linuxUsername = sanitizeUsername(normalizedEmail)
+
+  const user = await prisma.user.create({
     data: {
       name: name.trim(),
       email: normalizedEmail,
       role: Role.teacher,
       active: true,
+      teacher: { create: {} },
+      linuxAccount: {
+        create: {
+          linux_username: linuxUsername,
+          linux_provisioned: false,
+        },
+      },
     },
     select: TEACHER_SELECT,
   })
+
+  return serializeTeacher(user)
 }
 
 async function toggleActive(id) {
-  const user = await prisma.user.findUnique({ where: { id } })
+  const user = await prisma.user.findUnique({
+    where: { id },
+    select: { id: true, role: true, active: true },
+  })
 
   if (!user || user.role !== Role.teacher) {
     throw new ServiceError("Docente no encontrado", 404)
   }
 
-  return prisma.user.update({
+  const updated = await prisma.user.update({
     where: { id },
     data: { active: !user.active },
     select: TEACHER_SELECT,
   })
+  return serializeTeacher(updated)
 }
 
-module.exports = { findAll, register, toggleActive, ServiceError }
+module.exports = { findAll, register, toggleActive, ServiceError, serializeTeacher }
