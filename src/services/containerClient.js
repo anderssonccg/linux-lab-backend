@@ -13,6 +13,7 @@ async function execInteractive(opts = {}) {
     AttachStderr: true,
     Tty: true,
     Env: opts.env || [],
+    User: opts.user || "",
   })
 
   const stream = await exec.start({ Tty: true, hijack: true })
