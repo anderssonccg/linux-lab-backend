@@ -1,4 +1,4 @@
-const containerClient = require("./containerClient")
+const sshClient = require("./sshClient")
 
 class ContainerServiceError extends Error {
   constructor(message, code) {
@@ -9,20 +9,21 @@ class ContainerServiceError extends Error {
 }
 
 async function createUser(username) {
-  const command = `id -u ${username} >/dev/null 2>&1 && exit 0 || useradd -m -s /bin/bash ${username}`
-  const output = await containerClient.execSimple(command)
-  return { username, output: output || "" }
+  const { code, stdout, stderr } = await sshClient.execCommand(
+    `id -u ${username} >/dev/null 2>&1 && exit 0 || useradd -m -s /bin/bash ${username}`,
+  )
+  return { username, output: stdout || stderr || "" }
 }
 
 async function userExists(username) {
-  const command = `id -u ${username} >/dev/null 2>&1 && echo "exists" || echo "missing"`
-  const output = await containerClient.execSimple(command)
-  return output === "exists"
+  const { code } = await sshClient.execCommand(`id -u ${username} >/dev/null 2>&1`)
+  return code === 0
 }
 
-async function openPtySession(username, extraEnv = []) {
-  const env = [`USER=${username}`, `HOME=/home/${username}`, `TERM=xterm-256color`, ...extraEnv]
-  return containerClient.execInteractive({ user: username, env })
+async function openPtySession(username) {
+  const stream = await sshClient.createShellStream()
+  stream.write(`su - ${username}\n`)
+  return stream
 }
 
 function closePtySession(stream) {

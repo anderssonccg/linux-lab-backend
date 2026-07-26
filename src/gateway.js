@@ -1,6 +1,7 @@
 const { WebSocketServer } = require("ws")
 const wsAuth = require("./middleware/wsAuth")
-const containerClient = require("./services/containerClient")
+const prisma = require("../prisma/client")
+const linuxContainerService = require("./services/linuxContainerService")
 
 function setupGateway(server) {
   const wss = new WebSocketServer({ server, path: "/terminal" })
@@ -12,11 +13,18 @@ function setupGateway(server) {
       return
     }
 
+    const user = await prisma.user.findUnique({
+      where: { id: auth.user.id },
+      include: { linuxAccount: true },
+    })
+    if (!user || !user.linuxAccount?.linux_username) {
+      ws.close(4001, "No linux account configured")
+      return
+    }
+
     let stream
     try {
-      stream = await containerClient.execInteractive({
-        env: [`USER=${auth.user.id}`, `HOME=/home/${auth.user.id}`, `TERM=xterm-256color`],
-      })
+      stream = await linuxContainerService.openPtySession(user.linuxAccount.linux_username)
     } catch (err) {
       ws.close(4001, `Container error: ${err.message}`)
       return
