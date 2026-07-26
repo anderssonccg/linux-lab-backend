@@ -20,6 +20,7 @@ RUN apt-get update && apt-get install -y \
     sudo \
     curl \
     wget \
+    openssh-server \
     && rm -rf /var/lib/apt/lists/*
 
 # Script simulado de systemctl
@@ -40,4 +41,6 @@ RUN echo 'labadmin ALL=(root) NOPASSWD: /usr/sbin/useradd, /usr/sbin/userdel, /u
 # Permisos seguros en /home
 RUN chmod 755 /home
 
-CMD ["tail", "-f", "/dev/null"]
+COPY scripts/entrypoint-entorno.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+CMD ["/entrypoint.sh"]
