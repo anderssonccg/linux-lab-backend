@@ -1,5 +1,6 @@
 #!/bin/bash
 set -e
+ssh-keygen -A >/dev/null 2>&1
 if [ -f /ssh/ssh_key.pub ]; then
   mkdir -p /home/labadmin/.ssh /root/.ssh
   cp /ssh/ssh_key.pub /home/labadmin/.ssh/authorized_keys
